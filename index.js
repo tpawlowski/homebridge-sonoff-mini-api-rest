@@ -19,20 +19,11 @@ function SonoffAccessory(log, config) {
   this.url = config["url"];
   this.debug = config.debug || false;
 
-  // old version config
-  if(this.url === undefined) {
-    this.url = config["uri"];
-  }
-
-  if(this.type === undefined) {
-    this.type = "lightbulb";
-  }
-
   switch (this.type) {
       case "fan":
         this.service = new Service.Fan(this.name);
         break;
-      case "lightbulb":
+      default: // "lightbulb"
         this.service = new Service.Lightbulb(this.name);
         break;
   }
@@ -49,22 +40,17 @@ SonoffAccessory.prototype.getState = function(callback) {
   superagent
   .post(this.url+'/zeroconf/info')
   .send({ "deviceid": this.id, "data": { } }) // sends a JSON post body
-  .set('X-API-Key', 'foobar')
-  .set('accept', 'json')
   .end((error, response) => {
     if (!error && response.statusCode == 200) {
-      var json = JSON.parse(response.text).data;
-      var state = JSON.parse(json).switch;
-
-      if (this.debug)           
-          this.log('getState() request returned successfully ('+response.statusCode+'). Body: '+JSON.stringify(json));
+      if (this.debug)
+          this.log('getState() request returned successfully ('+response.statusCode+'). Body: '+response.text);
+      var state = JSON.parse(response.text).data.switch;
 
       this.log("Sonoff state is %s", state);
 
-      var on = (state == "on") ? true : false;
+      var on = (state === "on" || state === "On" ) ? true : false;
       callback(null, on); 
-    }
-    else {
+    } else {
       this.log("Function getState(). Error getting state (status code %s): %s", response, error.message);
       callback(error);
     }
@@ -80,18 +66,15 @@ SonoffAccessory.prototype.setState = function(state, callback) {
   superagent
     .post(this.url+'/zeroconf/switch')
     .send({ "deviceid": this.id, "data": { "switch": SonoffState } }) // sends a JSON post body
-    .set('X-API-Key', 'foobar')
-    .set('accept', 'json')
     .end((error, response) => {
       if (!error && response.statusCode == 200) {
         if (this.debug)           
-            this.log('setState() request returned successfully ('+response.statusCode+'). Body: '+JSON.stringify(response));
+            this.log('setState() request returned successfully ('+response.statusCode+'). Body: '+response.text);
         callback(null, state);
-      }
-      else {
+      } else {
         this.log("Function setState(). Error getting state (status code %s): %s", response, error.message);
         callback(error);
-      }      
+      }
     });
 }
 
